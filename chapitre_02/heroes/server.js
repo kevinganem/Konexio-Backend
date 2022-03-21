@@ -1,36 +1,13 @@
 const express = require("express");
+const dotenv = require("dotenv");
+dotenv.config({
+  path: "../../config.env",
+});
+const { Pool } = require("pg");
 const app = express();
 app.use(express.json());
 
-const superHeroes = [
-  {
-    name: "Iron Man",
-    power: ["money"],
-    color: "red",
-    isAlive: true,
-    age: 46,
-    image:
-      "https://blog.fr.playstation.com/tachyon/sites/10/2019/07/unnamed-file-18.jpg?resize=1088,500&crop_strategy=smart",
-  },
-  {
-    name: "Thor",
-    power: ["electricity", "worthy"],
-    color: "blue",
-    isAlive: true,
-    age: 300,
-    image:
-      "https://www.bdfugue.com/media/catalog/product/cache/1/image/400x/17f82f742ffe127f42dca9de82fb58b1/9/7/9782809465761_1_75.jpg",
-  },
-  {
-    name: "Daredevil",
-    power: ["blind"],
-    color: "red",
-    isAlive: false,
-    age: 30,
-    image:
-      "https://aws.vdkimg.com/film/2/5/1/1/251170_backdrop_scale_1280xauto.jpg",
-  },
-];
+const Postgres = new Pool({ ssl: { rejectUnauthorized: false } });
 
 // ------ MIDDLEWARE ------- \\
 
@@ -41,75 +18,110 @@ app.use((_req, _res, next) => {
 
 // ------ HEROES ------- \\
 
-app.get("/heroes", (_req, res) => {
-  res.json(superHeroes);
+app.get("/heroes", async (_req, res) => {
+  const heroes = await Postgres.query("SELECT * FROM heroes");
+
+  res.json(heroes.rows);
 });
 
-app.post("/heroes", (req, res) => {
-  superHeroes.push(req.body);
+app.post("/heroes", async (req, res) => {
+  try {
+    await Postgres.query(
+      "INSERT INTO heroes(name, power, color, isAlive, age, image) VALUES($1, $2, $3, $4, $5, $6)",
+      [
+        req.body.name,
+        req.body.power,
+        req.body.color,
+        req.body.isAlive,
+        req.body.age,
+        req.body.image,
+      ]
+    );
+  } catch (err) {
+    return res.status(400).json({
+      message: "An error happened. Bad data received.",
+    });
+  }
 
   if (req.body.name) {
     req.body.name === req.body.name.toLocaleLowerCase();
   }
 
-  res.send("Ok, hero added!");
+  res.json({
+    message: `Hero ${req.body.name} added to the database`,
+  });
 });
 
-app.use("/heroes", (req, res, next) => {
-  res.json(superHeroes);
+app.use("/heroes", async (_req, res, _next) => {
+  const heroes = await Postgres.query("SELECT * FROM heroes");
+
+  res.json(heroes.rows);
 });
 
 // ------ HEROES NAME ------- \\
 
-app.get("/heroes/:name", (req, res) => {
-  const hero = superHeroes.find((hero) => {
-    return (
-      req.params.name.toLocaleLowerCase().replace(" ", "-") ===
-      hero.name.toLocaleLowerCase().replace(" ", "-")
-    );
-  });
+app.get("/heroes/:name", async (req, res) => {
+  const heroes = await Postgres.query(
+    "SELECT * FROM heroes WHERE heroes.name=$1",
+    [req.params.name]
+  );
 
-  if (!hero) {
+  if (req.params.name) {
+    req.params.name.toLocaleLowerCase().replace(" ", "-") ===
+      heroes.name.toLocaleLowerCase().replace(" ", "-");
+  }
+
+  if (!heroes) {
     return res.json({
       message: "This hero does not exist",
     });
   }
-  res.json(hero);
+
+  res.json(heroes.rows);
 });
 
 // ------ HEROES POWER ------- \\
 
-app.get("/heroes/:name/powers", (req, res) => {
-  const hero = superHeros.find(() => {
-    return (
-      req.params.name.toLocaleLowerCase().replace(" ", "-") ===
-      hero.name.toLocaleLowerCase().replace(" ", "-")
-    );
-  });
+app.get("/heroes/:name/powers", async (req, res) => {
+  const heroes = await Postgres.query(
+    "SELECT power FROM heroes WHERE heroes.name=$1",
+    [req.params.name]
+  );
 
-  if (!hero) {
+  if (req.params.name) {
+    req.params.name.toLocaleLowerCase().replace(" ", "-") ===
+      heroes.name.toLocaleLowerCase().replace(" ", "-");
+  }
+
+  if (!heroes) {
     return res.json({
       message: "This hero does not exist",
     });
   }
-  res.json(hero.power);
+
+  res.json(heroes.rows);
 });
 
-app.patch("/heroes/:name/powers", (req, res) => {
-  const hero = superHeros.find(() => {
-    return (
-      req.params.name.toLocaleLowerCase().replace(" ", "-") ===
-      hero.name.toLocaleLowerCase().replace(" ", "-")
-    );
-  });
+app.patch("/heroes/:name/powers", async (req, res) => {
+  const heroes = await Postgres.query(
+    "UPDATE heroes SET power=$2 WHERE heroes.name=$1",
+    [req.params.name],
+    [req.body.power]
+  );
 
-  if (!hero) {
+  if (req.params.name) {
+    req.params.name.toLocaleLowerCase().replace(" ", "-") ===
+      heroes.name.toLocaleLowerCase().replace(" ", "-");
+  }
+
+  if (!heroes) {
     return res.json({
       message: "This hero does not exist",
     });
   }
-  superHeroes.power.push(req.body.power);
-  res.send("Power added!");
+
+  res.send("Power added");
+  res.json(heroes.rows);
 });
 
 // ------ * ------- \\
