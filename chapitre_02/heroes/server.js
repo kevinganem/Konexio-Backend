@@ -61,20 +61,15 @@ app.use("/heroes", async (_req, res, _next) => {
 // ------ HEROES NAME ------- \\
 
 app.get("/heroes/:name", async (req, res) => {
-  const heroes = await Postgres.query(
-    "SELECT * FROM heroes WHERE heroes.name=$1",
-    [req.params.name]
-  );
-
-  if (req.params.name) {
-    req.params.name.toLocaleLowerCase().replace(" ", "-") ===
-      heroes.name.toLocaleLowerCase().replace(" ", "-");
-  }
-
-  if (!heroes) {
-    return res.json({
-      message: "This hero does not exist",
-    });
+  let heroes;
+  try {
+    heroes = await Postgres.query(
+      "SELECT * FROM heroes WHERE LOWER(name)= $1",
+      [req.params.name.toLowerCase()]
+    );
+  } catch (err) {
+    console.log(err);
+    return res.status(400).json({ message: "Error" });
   }
 
   res.json(heroes.rows);
@@ -83,45 +78,45 @@ app.get("/heroes/:name", async (req, res) => {
 // ------ HEROES POWER ------- \\
 
 app.get("/heroes/:name/powers", async (req, res) => {
-  const heroes = await Postgres.query(
-    "SELECT power FROM heroes WHERE heroes.name=$1",
-    [req.params.name]
-  );
-
-  if (req.params.name) {
-    req.params.name.toLocaleLowerCase().replace(" ", "-") ===
-      heroes.name.toLocaleLowerCase().replace(" ", "-");
-  }
-
-  if (!heroes) {
-    return res.json({
-      message: "This hero does not exist",
-    });
+  let heroes;
+  try {
+    heroes = await Postgres.query(
+      "SELECT power FROM heroes WHERE LOWER(name)= $1",
+      [req.params.name.toLowerCase()]
+    );
+  } catch (err) {
+    console.log(err);
+    return res.status(400).json({ message: "Error" });
   }
 
   res.json(heroes.rows);
 });
 
 app.patch("/heroes/:name/powers", async (req, res) => {
-  const heroes = await Postgres.query(
-    "UPDATE heroes SET power=$2 WHERE heroes.name=$1",
-    [req.params.name],
-    [req.body.power]
-  );
-
-  if (req.params.name) {
-    req.params.name.toLocaleLowerCase().replace(" ", "-") ===
-      heroes.name.toLocaleLowerCase().replace(" ", "-");
+  let heroes;
+  try {
+    heroes = await Postgres.query(
+      "SELECT power FROM heroes WHERE LOWER(name)= $1",
+      [req.params.name.toLowerCase()]
+    );
+  } catch (err) {
+    console.log(err);
+    return res.status(400).json({ message: "Error" });
   }
+  const result = heroes.rows[0].power;
 
-  if (!heroes) {
-    return res.json({
-      message: "This hero does not exist",
-    });
+  result.push(req.body.power);
+
+  try {
+    await Postgres.query("UPDATE heroes SET power = $1 WHERE LOWER(name)= $2", [
+      result,
+      req.params.name.toLowerCase(),
+    ]);
+  } catch (err) {
+    console.log(err);
+    return res.status(400).json({ message: "Error" });
   }
-
   res.send("Power added");
-  res.json(heroes.rows);
 });
 
 // ------ * ------- \\
