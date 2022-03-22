@@ -22,18 +22,36 @@ app.use((req, res, next) => {
 
 const students = [];
 
-app.get("/students", (req, res) => {
-  res.send(students);
+app.get("/students", async (_req, res) => {
+  let students;
+
+  try {
+    students = await Postgres.query("SELECT * FROM students");
+  } catch (err) {
+    console.log(err);
+    return res.send("Error");
+  }
+
+  res.json(students.rows);
 });
 
 app.post("/students", (req, res) => {
-  students.push({
-    name: req.body.name,
+  try {
+    await Postgres.query("INSERT INTO students(name) VALUES($1)", [
+      req.body.name,
+    ]);
+  } catch (err) {
+    console.log(err);
+    return res.send("Error");
+  }
+  console.log(req.body.name);
+  res.json({
+    message: `Student ${req.body.name} added !`,
+    studentsList: students,
   });
-  res.send(students);
 });
 
-app.get("*", (req, res) => {
+app.get("*", (_req, res) => {
   res.status(404).send("Page not found");
 });
 
