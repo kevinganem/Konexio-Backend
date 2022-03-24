@@ -1,13 +1,30 @@
 const express = require("express");
+const app = express();
 const dotenv = require("dotenv");
 dotenv.config({
   path: "../../config.env",
 });
-const { Pool } = require("pg");
-const app = express();
+
 app.use(express.json());
 
-const Postgres = new Pool({ ssl: { rejectUnauthorized: false } });
+// ----------- MONGODB ----------- \\
+
+const mongoose = require("mongoose");
+const Authors = require("./schema/authorsSchema");
+
+mongoose
+  .connect(
+    "mongodb+srv://Konexio-root-kevinganem:root@cluster0.18asb.mongodb.net/kevinganem?retryWrites=true&w=majority",
+    {
+      useNewUrlParser: true,
+    }
+  )
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.log(err));
+
+app.get("/", (_req, res) => {
+  res.send("Heroes API");
+});
 
 // ------ MIDDLEWARE ------- \\
 
@@ -19,104 +36,100 @@ app.use((_req, _res, next) => {
 // ------ HEROES ------- \\
 
 app.get("/heroes", async (_req, res) => {
-  const heroes = await Postgres.query("SELECT * FROM heroes");
+  let heroes;
 
-  res.json(heroes.rows);
+  try {
+    heroes = await Hero.find();
+  } catch (err) {
+    console.log(err);
+    return res.status(400).send("error 400");
+  }
+
+  res.json(heroes);
 });
 
 app.post("/heroes", async (req, res) => {
   try {
-    await Postgres.query(
-      "INSERT INTO heroes(name, power, color, isAlive, age, image) VALUES($1, $2, $3, $4, $5, $6)",
-      [
-        req.body.name,
-        req.body.power,
-        req.body.color,
-        req.body.isAlive,
-        req.body.age,
-        req.body.image,
-      ]
-    );
+    await Hero.create(req.body);
   } catch (err) {
-    return res.status(400).json({
-      message: "An error happened. Bad data received.",
-    });
-  }
+    console.log(err);
 
-  if (req.body.name) {
-    req.body.name === req.body.name.toLocaleLowerCase();
+    return res.status(400).send("error 400");
   }
-
-  res.json({
-    message: `Hero ${req.body.name} added to the database`,
+  res.status(201).json({
+    message: "hero added ! ",
+    description: req.body,
   });
-});
-
-app.use("/heroes", async (_req, res, _next) => {
-  const heroes = await Postgres.query("SELECT * FROM heroes");
-
-  res.json(heroes.rows);
 });
 
 // ------ HEROES NAME ------- \\
 
 app.get("/heroes/:name", async (req, res) => {
   let heroes;
+
   try {
-    heroes = await Postgres.query(
-      "SELECT * FROM heroes WHERE LOWER(name)= $1",
-      [req.params.name.toLowerCase()]
-    );
+    heroes = await Hero.find(req.params);
   } catch (err) {
     console.log(err);
-    return res.status(400).json({ message: "Error" });
+    return res.status(400).send("Error 400");
   }
 
-  res.json(heroes.rows);
+  res.json(heroes);
+});
+
+app.delete("/heroes/:name", async (req, res) => {
+  try {
+    await Hero.findOneAndDelete(req.params.name);
+  } catch (err) {
+    console.log(err);
+    return res.status(400).send("Error 400");
+  }
+
+  res.send("Hero deleted");
 });
 
 // ------ HEROES POWER ------- \\
 
 app.get("/heroes/:name/powers", async (req, res) => {
-  let heroes;
+  let powers;
+
   try {
-    heroes = await Postgres.query(
-      "SELECT power FROM heroes WHERE LOWER(name)= $1",
-      [req.params.name.toLowerCase()]
-    );
+    powers = await Hero.find(req.params).select("power");
   } catch (err) {
     console.log(err);
-    return res.status(400).json({ message: "Error" });
+    return res.status(400).send("Error 400");
   }
+  powers = powers[0].power;
 
-  res.json(heroes.rows);
+  res.json(powers);
 });
 
 app.patch("/heroes/:name/powers", async (req, res) => {
-  let heroes;
-  try {
-    heroes = await Postgres.query(
-      "SELECT power FROM heroes WHERE LOWER(name)= $1",
-      [req.params.name.toLowerCase()]
-    );
-  } catch (err) {
-    console.log(err);
-    return res.status(400).json({ message: "Error" });
-  }
-  const result = heroes.rows[0].power;
-
-  result.push(req.body.power);
+  let powers;
 
   try {
-    await Postgres.query("UPDATE heroes SET power = $1 WHERE LOWER(name)= $2", [
-      result,
-      req.params.name.toLowerCase(),
-    ]);
+    powers = await Hero.find(req.params).select("power");
+    powers = powers[0].power;
+    powers.push(req.body.power);
+    console.log(powers);
   } catch (err) {
     console.log(err);
-    return res.status(400).json({ message: "Error" });
+    return res.status(400).send("Error 400");
   }
-  res.send("Power added");
+
+  try {
+    await Hero.updateOne(
+      { name: req.params.name },
+      {
+        power: powers,
+      }
+    ).select("power");
+  } catch (err) {
+    console.log(err);
+    return res.status(400).send("Error 400");
+  }
+
+  res.json(powers);
 });
 
 // ------ * ------- \\
