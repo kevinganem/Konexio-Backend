@@ -1,15 +1,18 @@
 // REACT
-import React from "react";
+import React, { useContext } from "react";
 import axios from "axios";
 // CONTEXT
-// import { UserContext } from "../context/UserContext";
+import { UserContext } from "../context/userContext";
 // ROUTER
-// import { useHistory } from "react-router-dom";
+import { useHistory } from "react-router-dom";
 // FORMIK - YUP
 import { useFormik } from "formik";
 import * as Yup from "yup";
 
 export default function Form() {
+  const { users, setUsers } = useContext(UserContext);
+  const history = useHistory();
+
   const formik = useFormik({
     initialValues: {
       email: "",
@@ -39,9 +42,25 @@ export default function Form() {
     }),
     onSubmit: (values) => {
       console.log(values);
-      //   axios.post("http://localhost:8000/signup", {
-      //     values,
-      //   });
+
+      axios.post("http://localhost:8000/signup", {
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName,
+        surname: values.surname,
+        birthDate: values.birthDate,
+      });
+
+      setUsers({
+        email: values.email,
+        password: values.password,
+        firstName: values.firstName,
+        surname: values.surname,
+        birthDate: values.birthDate,
+      });
+
+      console.log(users);
+      history.push("/");
     },
   });
 

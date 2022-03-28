@@ -15,7 +15,11 @@ const secret = "5aJif0OZjepB63NRwyNSkk0czzttHKjXNQbEImrW";
 // MIDDLEWARES
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+  })
+);
 
 // MOMNGODB
 mongoose
@@ -31,13 +35,9 @@ mongoose
 
 // ROUTES
 app.post("/signup", async (req, res) => {
-  if (req.body.password.length < 8) {
-    return res.status(400).json({
-      message: "Invalid data",
-    });
-  }
-
   const hashedPassword = await bcrypt.hash(req.body.password, 12);
+
+  console.log(hashedPassword);
 
   try {
     await User.create({
@@ -45,7 +45,7 @@ app.post("/signup", async (req, res) => {
       password: hashedPassword,
       firstName: req.body.firstName,
       surname: req.body.surname,
-      dateOfBirth: req.body.dateOfBirth,
+      birthDate: req.body.birthDate,
     });
   } catch (err) {
     return res.status(400).json({
